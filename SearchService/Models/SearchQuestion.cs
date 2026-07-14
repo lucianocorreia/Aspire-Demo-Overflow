@@ -12,10 +12,10 @@ public class SearchQuestion
     public required string Content { get; set; }
     [JsonPropertyName("tags")]
     public string[] Tags { get; set; } = [];
-    [JsonPropertyName("created_at")]
+    [JsonPropertyName("createdAt")]
     public long CreatedAt { get; set; }
-    [JsonPropertyName("has_accepted_answer")]
+    [JsonPropertyName("hasAcceptedAnswer")]
     public bool HasAcceptedAnswer { get; set; }
-    [JsonPropertyName("answers_count")]
+    [JsonPropertyName("answersCount")]
     public int AnswersCount { get; set; }
 }

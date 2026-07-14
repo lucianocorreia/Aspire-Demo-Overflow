@@ -11,8 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Aspire.Keycloak.Authentication"
-            Version="13.4.6-preview.1.26319.6" />
+        <PackageReference Include="Aspire.Keycloak.Authentication" Version="13.4.6-preview.1.26319.6" />
         <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.4.6" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
@@ -20,9 +19,12 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <PackageReference Include="WolverineFx.RabbitMQ" Version="6.17.1" />
+        <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.17.1" />
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../Contracts/Contracts.csproj" />
         <ProjectReference Include="..\Overflow.ServiceDefaults\Overflow.ServiceDefaults.csproj" />
     </ItemGroup>
 

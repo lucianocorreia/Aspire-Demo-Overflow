@@ -1,23 +1,47 @@
 using System.Security.Claims;
+using Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuestionService.Data;
 using QuestionService.Dtos;
 using QuestionService.Models;
+using Wolverine;
 
 namespace QuestionService.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class QuestionsController(QuestionDbContext context) : ControllerBase
+public class QuestionsController(QuestionDbContext context, IMessageBus bus) : ControllerBase
 {
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<Question>> CreateQuestion(CreateQuestionDto dto)
     {
-        var validTags = await context.Tags.Where(x => dto.Tags.Contains(x.Slug)).ToListAsync();
-        var missingTags = dto.Tags.Except([.. validTags.Select(x => x.Slug)]).ToList();
+        if (dto is null)
+        {
+            return BadRequest("Request body is required.");
+        }
+
+        if (dto.Tags is null || dto.Tags.Count == 0)
+        {
+            return BadRequest("At least one tag is required.");
+        }
+
+        var tags = dto.Tags
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (tags.Count == 0)
+        {
+            return BadRequest("At least one valid tag is required.");
+        }
+
+        var validTags = await context.Tags.Where(x => tags.Contains(x.Slug)).ToListAsync();
+        var validTagSlugs = validTags.Select(x => x.Slug).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missingTags = tags.Where(tag => !validTagSlugs.Contains(tag)).ToList();
 
         if (missingTags.Count != 0)
         {
@@ -33,13 +57,22 @@ public class QuestionsController(QuestionDbContext context) : ControllerBase
         {
             Title = dto.Title,
             Content = dto.Content,
-            TagSlugs = dto.Tags,
+            TagSlugs = tags,
             AskerId = userId,
             AskerDisplayName = name
         };
 
         context.Questions.Add(question);
         await context.SaveChangesAsync();
+
+        // Publish the QuestionCreated event to the message bus
+        await bus.PublishAsync(new QuestionCreated(
+            question.Id,
+            question.Title,
+            question.Content,
+            question.CreatedAt,
+            tags.ToList()
+        ));
 
         return Created($"/questions/{question.Id}", question);
     }
@@ -78,6 +111,27 @@ public class QuestionsController(QuestionDbContext context) : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult> UpdateQuestion(string id, CreateQuestionDto dto)
     {
+        if (dto is null)
+        {
+            return BadRequest("Request body is required.");
+        }
+
+        if (dto.Tags is null || dto.Tags.Count == 0)
+        {
+            return BadRequest("At least one tag is required.");
+        }
+
+        var tags = dto.Tags
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (tags.Count == 0)
+        {
+            return BadRequest("At least one valid tag is required.");
+        }
+
         var question = await context.Questions.FindAsync(id);
         if (question == null)
         {
@@ -90,8 +144,9 @@ public class QuestionsController(QuestionDbContext context) : ControllerBase
             return Forbid();
         }
 
-        var validTags = await context.Tags.Where(x => dto.Tags.Contains(x.Slug)).ToListAsync();
-        var missingTags = dto.Tags.Except([.. validTags.Select(x => x.Slug)]).ToList();
+        var validTags = await context.Tags.Where(x => tags.Contains(x.Slug)).ToListAsync();
+        var validTagSlugs = validTags.Select(x => x.Slug).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missingTags = tags.Where(tag => !validTagSlugs.Contains(tag)).ToList();
 
         if (missingTags.Count != 0)
         {
@@ -100,7 +155,7 @@ public class QuestionsController(QuestionDbContext context) : ControllerBase
 
         question.Title = dto.Title;
         question.Content = dto.Content;
-        question.TagSlugs = dto.Tags;
+        question.TagSlugs = tags;
 
         await context.SaveChangesAsync();
 
